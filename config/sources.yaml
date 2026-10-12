@@ -1,0 +1,31 @@
+# 信息源与采集配置。修改后对下一次采集立即生效。
+
+# 历史回填窗口（天）。用户设定：AI 迭代快，只保留最近 3 个月
+backfill_days: 90
+
+user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+politeness:
+  aiera_delay_seconds: 1.0
+  jiqizhixin_delay_seconds: 3.0
+  max_retries: 3
+
+aiera:  # 新智元官网（WordPress REST API，返回含全文 JSON）
+  enabled: true
+  api: "https://aiera.com.cn/wp-json/wp/v2/posts"
+  per_page: 100          # WP 上限 100
+  incremental_max_pages: 5
+  backfill_max_pages: 100
+
+jiqizhixin:  # 机器之心（jina 公共阅读器代理 → 站内 JSON API；sitemap 兜底）
+  enabled: true
+  base: "https://www.jiqizhixin.com"
+  articles_entry: "/articles"       # 本机 Playwright 回落方案用（日常采集不需要浏览器）
+  library_api: "/api/article_library/articles.json"
+  article_api: "/api/article_library/articles/"   # + slug，返回含全文的单篇 JSON
+  per_page: 20
+  sitemap: "https://www.jiqizhixin.com/shared/sitemap.xml.gz"
+  content_delay_seconds: 3.5        # jina 免费档限速约 20 次/分钟，留足余量
+  content_cap_daily: 20             # 每日增量模式最多补抓篇数
+  content_cap_backfill: 40          # 回填模式单批篇数
+  user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"

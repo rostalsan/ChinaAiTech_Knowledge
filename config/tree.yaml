@@ -1,0 +1,106 @@
+# 知识树骨架 —— LLM 整理会话按此挂载文章。
+# 可随时增删改；id 是稳定标识（主档 topics 字段引用它），name/subtopics 可自由调整。
+# stage + requires 表达「先后关系」：stage 为建议学习阶段（小者先学），
+# requires 为前置节点（学该节点前应先掌握的节点）；同阶段内的节点无先后之分。
+# config/stages 见 stages: 映射；调整结构后运行 python scripts/build_kb.py 重建 HTML 视图。
+
+stages:
+  1: 打地基 · 基础理论与架构
+  2: 认格局 · 大模型动态
+  3: 造与跑 · 训练与部署
+  4: 会干活 · Agent 与 RAG
+  5: 扩感官 · 多模态与具身
+  6: 稳落地 · 工程与应用
+  7: 追前沿 · 研究与产业
+
+tree:
+  - id: basics
+    name: 基础理论与架构
+    stage: 1
+    requires: []
+    desc: Transformer/注意力/扩散等底层原理、架构创新、Scaling Laws、tokenizer、embedding
+    subtopics: [Transformer与注意力, Scaling Laws与训练动力学, 新架构(Mamba/线性注意力等), Embedding与表示学习]
+
+  - id: llm
+    name: 大模型动态
+    stage: 2
+    requires: [basics]
+    desc: 各家模型发布与能力评测、开源模型动态、模型选型
+    subtopics: [闭源模型(GPT/Claude/Gemini等), 开源模型(Llama/Qwen/DeepSeek等), 模型评测与榜单]
+
+  - id: training
+    name: 训练与对齐
+    stage: 3
+    requires: [basics, llm]
+    desc: 预训练、后训练、SFT/RLHF/RLVR、推理模型训练、数据工程
+    subtopics: [预训练, 后训练与强化学习(RLHF/GRPO等), 数据与合成数据, 微调技术(LoRA等)]
+
+  - id: inference
+    name: 推理与部署
+    stage: 3
+    requires: [basics, llm]
+    desc: 推理框架、量化压缩、加速、端侧部署、成本优化
+    subtopics: [推理框架(vLLM/SGLang等), 量化与压缩, 端侧与边缘, 成本与吞吐优化]
+
+  - id: agent
+    name: Agent 与工作流
+    stage: 4
+    requires: [llm]
+    desc: 智能体框架与设计模式、MCP、多智能体、工具调用、编程 Agent、Agent 可靠性
+    subtopics: [Agent框架与设计模式, MCP与工具生态, 多智能体协作, 编程Agent, Agent评测与可靠性]
+
+  - id: rag
+    name: RAG 与知识工程
+    stage: 4
+    requires: [llm]
+    desc: 检索增强、向量库、知识库构建、长上下文、知识图谱
+    subtopics: [检索与向量库, RAG架构与优化, 长上下文, 知识图谱]
+
+  - id: multimodal
+    name: 多模态
+    stage: 5
+    requires: [llm]
+    desc: 图像/视频/语音生成、多模态理解 VLM、世界模型
+    subtopics: [图像生成, 视频生成, 语音与音频, VLM多模态理解, 世界模型]
+
+  - id: embodied
+    name: 具身智能与机器人
+    stage: 5
+    requires: [multimodal]
+    desc: 人形机器人、VLA、自动驾驶、具身产业
+    subtopics: [人形机器人, VLA与操作, 自动驾驶, 具身产业动态]
+
+  - id: engineering
+    name: AI 工程实践
+    stage: 6
+    requires: [agent, rag]
+    desc: 评测体系、Prompt/上下文工程、数据管线、成本与可观测性
+    subtopics: [评测与基准, Prompt与上下文工程, 数据管线, 运维与可观测]
+
+  - id: apps
+    name: AI 应用与产品
+    stage: 6
+    requires: [agent]
+    desc: 场景化应用、行业落地、AI 编程工具、产品与商业化
+    subtopics: [AI编程工具, 办公与生产力, 行业应用(医疗/金融/教育等), 产品与商业化]
+
+  - id: frontier
+    name: 前沿研究与论文
+    stage: 7
+    requires: []
+    desc: 重要论文解读、研究进展、可复现研究、数据集
+    subtopics: [论文精读, 研究趋势, 数据集与基准]
+
+  - id: industry
+    name: 产业与生态
+    stage: 7
+    requires: []
+    desc: 融资并购、政策监管、芯片算力、人才与观点
+    subtopics: [融资与商业, 政策与监管, 芯片与算力, 观点与人物]
+
+  - id: news
+    name: 日常新闻
+    stage: 7
+    requires: []
+    desc: 日常动态、产品迭代与花边消息，不承载学习脉络（兜底节点，置底展示）
+    subtopics: [日常动态与产品迭代]

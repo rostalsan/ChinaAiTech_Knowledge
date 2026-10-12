@@ -1,0 +1,25 @@
+# 数据与生成层（本地自动生成，不入库）
+data/
+kb/
+learning/
+reports/
+docs/
+logs/
+
+# 个人配置与工作记录
+commandLog.md
+AGENTS.md
+config/writer/
+
+# 依赖与构建产物
+node_modules/
+dist/
+web/dist/
+web/node_modules/
+
+# 运行时产物
+web/server/data/
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store

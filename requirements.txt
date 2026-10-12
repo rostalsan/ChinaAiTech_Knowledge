@@ -1,0 +1,8 @@
+# AI 知识库 Python 依赖（新机：pip install -r requirements.txt）
+# playwright 另需一次性安装浏览器内核：playwright install chromium（仅机器之心 jina 通道失效时的兜底采集用）
+requests
+PyYAML
+beautifulsoup4
+markdownify
+rapidfuzz
+playwright
