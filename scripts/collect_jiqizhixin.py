@@ -124,6 +124,61 @@ def fetch_list_via_playwright(cfg: dict) -> list:
             b.close()
 
 
+class PlaywrightContentSession:
+    """jina 失效时的正文回落：本机浏览器过站后，在页面上下文内逐篇 fetch 单篇 API。
+
+    与 fetch_list_via_playwright 同一模式（credentials include 携带过站 cookie），
+    返回结构与 jina 代理完全一致（同一站点 JSON），下游解析零改动；
+    整个补抓循环共享一个浏览器会话，避免逐篇启动开销。
+    """
+
+    def __init__(self, cfg: dict):
+        from playwright.sync_api import sync_playwright
+        self._pw = sync_playwright().start()
+        try:
+            self._b = self._pw.chromium.launch(headless=True)
+            ctx = self._b.new_context(user_agent=cfg["user_agent"], locale="zh-CN",
+                                      viewport={"width": 1920, "height": 1080})
+            self._page = ctx.new_page()
+            self._page.goto(cfg["base"] + cfg["articles_entry"],
+                            wait_until="domcontentloaded", timeout=60000)
+            self._page.wait_for_timeout(3000)
+        except Exception:
+            self.close()
+            raise
+
+    def get_json(self, path: str) -> dict:
+        url = f"https://www.jiqizhixin.com{path}"
+        try:
+            return self._fetch_json(url)
+        except Exception:
+            # 命中 WAF 挑战页（接口返回 HTML）或会话失效：整页重载重新过站，再试一次
+            self._page.reload(wait_until="domcontentloaded", timeout=60000)
+            self._page.wait_for_timeout(3000)
+            return self._fetch_json(url)
+
+    def _fetch_json(self, url: str) -> dict:
+        data = self._page.evaluate(
+            "async (u) => (await fetch(u, {credentials:'include'})).json()",
+            url,
+        )
+        if not isinstance(data, dict):
+            raise RuntimeError("单篇接口返回结构异常")
+        return data
+
+    def close(self):
+        try:
+            if getattr(self, "_b", None):
+                self._b.close()
+        except Exception:
+            pass
+        try:
+            if getattr(self, "_pw", None):
+                self._pw.stop()
+        except Exception:
+            pass
+
+
 def upsert_list_item(conn, it: dict) -> str:
     iid = str(it.get("id") or "")
     slug = str(it.get("slug") or "")
@@ -214,7 +269,7 @@ def _remaining(conn) -> int:
 
 # ---------------- 全文补抓 ----------------
 
-def drain_content(conn, cap: int, delay: float, stats: dict) -> None:
+def drain_content(conn, cap: int, delay: float, stats: dict, cfg: dict) -> None:
     rows = conn.execute(
         """SELECT id, uid, url, title, publish_date, extra FROM articles
            WHERE source='jiqizhixin' AND (content_md_path IS NULL OR content_md_path='')
@@ -223,6 +278,7 @@ def drain_content(conn, cap: int, delay: float, stats: dict) -> None:
         (cap,),
     ).fetchall()
     consecutive_fail = 0
+    pw_sess = None  # jina 失效时的浏览器回落会话：惰性创建，整个循环共享
     for row in rows:
         extra = json.loads(row["extra"] or "{}")
         slug = extra.get("slug") or row["uid"].split(":", 1)[-1]
@@ -231,13 +287,33 @@ def drain_content(conn, cap: int, delay: float, stats: dict) -> None:
             j = jina_json(f"/api/article_library/articles/{slug}")
             consecutive_fail = 0
         except JinaError as e:
-            stats["content_fail"] += 1
-            consecutive_fail += 1
-            stats["errors"].append(f"{slug}: {str(e)[:150]}")
-            if consecutive_fail >= 3:
-                stats["errors"].append("连续 3 次通道失败，中止本轮补抓")
-                break
-            continue
+            if pw_sess is None:
+                try:
+                    pw_sess = PlaywrightContentSession(cfg)
+                    stats["channels"]["content_fallback"] = "playwright"
+                except Exception as pe:  # noqa: BLE001
+                    pw_sess = "failed"
+                    stats["errors"].append(f"浏览器回落启动失败：{str(pe)[:120]}")
+            if pw_sess == "failed":
+                stats["content_fail"] += 1
+                consecutive_fail += 1
+                stats["errors"].append(f"{slug}: {str(e)[:120]}（jina 失效且回落不可用）")
+                if consecutive_fail >= 3:
+                    stats["errors"].append("连续 3 次通道失败，中止本轮补抓")
+                    break
+                continue
+            try:
+                j = pw_sess.get_json(f"/api/article_library/articles/{slug}")
+                consecutive_fail = 0
+                stats["content_via_playwright"] = stats.get("content_via_playwright", 0) + 1
+            except Exception as pe:  # noqa: BLE001
+                stats["content_fail"] += 1
+                consecutive_fail += 1
+                stats["errors"].append(f"{slug}: playwright 回落失败 {str(pe)[:120]}")
+                if consecutive_fail >= 3:
+                    stats["errors"].append("连续 3 次通道失败，中止本轮补抓")
+                    break
+                continue
         title = lib.strip_html(str(j.get("title") or ""))
         content = str(j.get("content") or "")
         if not title and not content.strip():
@@ -270,6 +346,8 @@ def drain_content(conn, cap: int, delay: float, stats: dict) -> None:
         )
         conn.commit()  # 每篇即提交，避免长事务锁库（可与整理/构建并行）
         stats["content_ok"] += 1
+    if pw_sess is not None and pw_sess != "failed":
+        pw_sess.close()
     conn.commit()
 
 
@@ -329,12 +407,12 @@ def collect(backfill: bool = False, drain_all: bool = False, limit: int | None =
             cap = cfg["content_cap_backfill"] if backfill else cfg["content_cap_daily"]
         if limit:
             cap = min(cap, limit)
-        drain_content(conn, cap, float(cfg["content_delay_seconds"]), stats)
+        drain_content(conn, cap, float(cfg["content_delay_seconds"]), stats, cfg)
         while drain_all:
             stats["remaining"] = _remaining(conn)
             if stats["remaining"] == 0 or stats["content_fail"] > 0:
                 break
-            drain_content(conn, cfg["content_cap_backfill"], float(cfg["content_delay_seconds"]), stats)
+            drain_content(conn, cfg["content_cap_backfill"], float(cfg["content_delay_seconds"]), stats, cfg)
         stats["remaining"] = _remaining(conn)
     except Exception as e:  # noqa: BLE001
         stats["channels"]["fatal"] = str(e)[:200]
