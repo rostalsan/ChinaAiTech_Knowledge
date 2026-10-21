@@ -47,6 +47,25 @@ node web/server/index.js
 
 Windows 下也可直接双击根目录 `启动看板.bat`。
 
+## 食用说明 · 用 AI Agent 快速上手（推荐）
+
+本项目为 **AI Agent 友好**设计：流程入口统一（`scripts/run_all.py`）、规则全部配置化（`config/*.yaml`）、整理 SOP 内置（`config/classify.md`、`config/curate-sop.md`）——你不需要记住任何命令，用 **Codex、ZCode、WorkBuddy、Claude Code** 等 Agent 工具在项目根目录打开，说人话即可驱动整条流水线：
+
+| 你对 Agent 说 | Agent 会做 |
+|---|---|
+| 「拉起本项目，跑一轮采集验证」 | 环境自检 `env_check.py` → 补装依赖 → `run_all.py` → 汇报两源对表结果 |
+| 「更新知识库」 | 触发整理会话：逐篇分类判定 → 入库 → 重写知识树/学习计划/项目清单 → 播报 |
+| 「启动本地看板」 | `node web/server/index.js` 起服务并验证 8787 端口 |
+| 「这次采集有几篇没抓到正文？」 | 查询主档欠账队列并解释原因（如通道故障、限速退避） |
+| 「帮我把 XX 源停掉/调慢采集」 | 改 `config/sources.yaml`（`enabled` / `*_delay_seconds`） |
+
+**上手建议**：
+
+1. 首次让 Agent 先读一遍 `README.md` 与 `scripts/env_check.py`，它会自己发现缺什么、装什么；
+2. 日常只需要三句话：「采集」「更新知识库」「开看板」；
+3. Agent 需要可执行 shell 命令的权限（Codex CLI / ZCode 默认具备）；涉及联网采集请在你自己授权的环境里运行；
+4. `config/` 里的每个 YAML 都是"改配置即改行为"，让 Agent 帮你调参比手改更稳（它会顺带跑通验证）。
+
 ## 目录结构
 
 ```
