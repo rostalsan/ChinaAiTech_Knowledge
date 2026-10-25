@@ -303,7 +303,8 @@ def drain_content(conn, cap: int, delay: float, stats: dict, cfg: dict) -> None:
                     break
                 continue
             try:
-                j = pw_sess.get_json(f"/api/article_library/articles/{slug}")
+                # 浏览器 fetch 单篇接口必须带 .json 后缀（裸路径返回 SPA 兜底 HTML）
+                j = pw_sess.get_json(f"/api/article_library/articles/{slug}.json")
                 consecutive_fail = 0
                 stats["content_via_playwright"] = stats.get("content_via_playwright", 0) + 1
             except Exception as pe:  # noqa: BLE001
